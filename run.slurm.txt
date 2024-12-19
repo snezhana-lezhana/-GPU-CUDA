@@ -1,0 +1,95 @@
+#!/bin/bash
+# Указываем компилятор CUDA
+NVCC := nvcc main.cu
+
+#SBATCH --job-name=run.slurm.txt
+#SBATCH --output=run.slurm.txt_%j.out
+#SBATCH --error=run.slurm.txt_%j.err
+#SBATCH --time=01:00:00
+#SBATCH --partition=normal
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+
+#SBATCH --job-name=run.slurm.txt
+#SBATCH --output=run.slurm.txt_%j.out
+#SBATCH --error=run.slurm.txt_%j.err
+#SBATCH --time=02:00:00
+#SBATCH --partition=normal
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks=1
+
+module load CUDA/12.2
+module load nvidia_sdk/nvhpc/23.5
+
+# Флаги компиляции
+CUDA_FLAGS := -O3 -arch=sm_90a 
+
+# Список файлов исходного кода
+SOURCES := matrix_multiply_basic.cu \
+      matrix_multiply_pinned.cu \
+      matrix_multiply_unified.cu \
+      matrix_multiply_streams.cu \
+      matrix_multiply_shared.cu \
+      matrix_multiply_cublas.cu \
+      matrix_multiply_omp.cu
+
+
+# Правило для сборки всех программ
+all: matrix_multiply_basic matrix_multiply_pinned matrix_multiply_unified matrix_multiply_streams matrix_multiply_shared matrix_multiply_cublas matrix_multiply_omp
+
+# Правило для сборки каждой программы (пример для basic, другие аналогичны)
+matrix_multiply_basic: matrix_multiply_basic.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_basic matrix_multiply_basic.cu
+
+matrix_multiply_pinned: matrix_multiply_pinned.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_pinned matrix_multiply_pinned.cu
+
+matrix_multiply_unified: matrix_multiply_unified.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_unified matrix_multiply_unified.cu
+
+matrix_multiply_streams: matrix_multiply_streams.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_streams matrix_multiply_streams.cu
+
+matrix_multiply_shared: matrix_multiply_shared.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_shared matrix_multiply_shared.cu
+
+matrix_multiply_cublas: matrix_multiply_cublas.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_cublas matrix_multiply_cublas.cu -lcublas
+
+matrix_multiply_omp: matrix_multiply_omp.cu
+ $(NVCC) $(CUDA_FLAGS) -o matrix_multiply_omp matrix_multiply_omp.cu -fopenmp
+
+
+# Правило для запуска тестов в Slurm
+
+test_basic: matrix_multiply_basic
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_basic
+
+test_pinned: matrix_multiply_pinned
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_pinned
+
+test_unified: matrix_multiply_unified
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_unified
+
+test_streams: matrix_multiply_streams
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_streams
+
+test_shared: matrix_multiply_shared
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_shared
+
+test_cublas: matrix_multiply_cublas
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_cublas
+
+test_omp: matrix_multiply_omp
+ sbatch --ntasks=1 --gres=gpu:1 run_slurm.sh matrix_multiply_omp
+
+
+# Правило для запуска всех тестов
+test: test_basic test_pinned test_unified test_streams test_shared test_cublas test_omp
+
+
+# Правило для очистки
+clean:
+ rm -f *.o *~ $(SOURCES:.cu=.out) matrix_multiply_*
+
